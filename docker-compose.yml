@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Main API service
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - RECALL_API_KEY=${RECALL_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+      - WEBSOCKET_DOMAIN=${WEBSOCKET_DOMAIN:-localhost:8000}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - meeting-agent-network
+  
+  # Redis service for state management
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - meeting-agent-network
+    command: redis-server --appendonly yes
+
+networks:
+  meeting-agent-network:
+    driver: bridge
+
+volumes:
+  redis-data:
