@@ -1,0 +1,913 @@
+# Comprehensive Implementation Guide for AI Meeting Agent
+## Complete Documentation for LLM-Based Development
+
+---
+
+## 📋 **Table of Contents**
+
+1. [Project Overview & Context](#project-overview)
+2. [Prerequisites & Environment Setup](#prerequisites)
+3. [Phase 1: Backend Foundation](#phase-1)
+4. [Phase 2: Service Integration](#phase-2)
+5. [Phase 3: WebSocket & Real-time Processing](#phase-3)
+6. [Phase 4: User Interface](#phase-4)
+7. [Testing Strategy](#testing)
+8. [Deployment Guide](#deployment)
+9. [Troubleshooting & Common Issues](#troubleshooting)
+
+---
+
+<a name="project-overview"></a>
+## 1. Project Overview & Context
+
+### **What We're Building**
+
+We are building an **AI Meeting Agent** that can:
+1. **Join live meetings** (Zoom, Microsoft Teams, Google Meet) as a bot participant
+2. **Provide real-time briefings** about what's being discussed in the meeting
+3. **Answer questions** by speaking in the meeting through the bot's voice
+
+### **How It Works - Simple Explanation**
+
+Think of it like this:
+- A robot (Recall.ai bot) joins your Zoom meeting
+- The robot listens to everyone talking
+- The robot sends audio to our server
+- Our server converts speech to text (Deepgram)
+- Our AI (OpenAI) understands the text and creates summaries
+- You can ask questions via a mobile app
+- The AI generates an answer and tells the robot to speak it in the meeting
+
+### **Technology Stack - Why These Choices**
+
+| Technology | Purpose | Why This One? |
+|-----------|---------|---------------|
+| **Python 3.11+** | Programming language | Best for AI/ML, extensive libraries, easy to read |
+| **FastAPI** | Web framework | Fast, modern, automatic API documentation, WebSocket support |
+| **Recall.ai** | Meeting bot infrastructure | Only service that can reliably join Zoom/Teams/Meet |
+| **Deepgram** | Speech-to-text | Fastest transcription (300ms latency), affordable |
+| **OpenAI GPT-4o-mini** | AI brain | Cost-effective, good quality, fast responses |
+| **Redis** | Data storage | Super fast, perfect for real-time data |
+| **Docker** | Deployment | Consistent environment everywhere |
+
+---
+
+<a name="prerequisites"></a>
+## 2. Prerequisites & Environment Setup
+
+### **2.1 Required Accounts & API Keys**
+
+#### **Step-by-step: Getting Your API Keys**
+
+**A. Recall.ai API Key**
+```
+1. Go to: https://www.recall.ai/
+2. Click "Sign Up" (top right)
+3. Choose "Developer" plan
+4. Verify your email
+5. Go to Dashboard → Settings → API Keys
+6. Click "Create New API Key"
+7. Copy and save the key (starts with "Token...")
+8. IMPORTANT: You'll never see this key again - save it securely!
+```
+
+**B. Deepgram API Key**
+```
+1. Go to: https://deepgram.com/
+2. Click "Sign Up Free"
+3. Verify your email
+4. Go to Console → API Keys
+5. Click "Create a New API Key"
+6. Name it: "meeting-agent-dev"
+7. Copy the key (long string of letters/numbers)
+8. Save it securely
+```
+
+**C. OpenAI API Key**
+```
+1. Go to: https://platform.openai.com/
+2. Sign up or log in
+3. Go to: https://platform.openai.com/api-keys
+4. Click "Create new secret key"
+5. Name it: "meeting-agent"
+6. Copy the key (starts with "sk-...")
+7. CRITICAL: Save immediately - you cannot see it again!
+```
+
+**D. Add Credits to OpenAI Account**
+```
+1. Go to: https://platform.openai.com/settings/organization/billing
+2. Click "Add payment method"
+3. Add credit card
+4. Add minimum $5 credit
+5. IMPORTANT: Without credits, your bot won't respond even if code is correct!
+```
+
+### **2.2 Development Environment Setup**
+
+#### **Installing Required Software**
+
+**For Mac/Linux:**
+```bash
+# Install Python 3.11 (if not already installed)
+# Mac:
+brew install python@3.11
+
+# Ubuntu/Linux:
+sudo apt update
+sudo apt install python3.11 python3.11-venv python3-pip
+
+# Verify installation
+python3.11 --version  # Should show: Python 3.11.x
+
+# Install Docker Desktop
+# Mac: Download from https://www.docker.com/products/docker-desktop
+# Linux: 
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Verify Docker
+docker --version  # Should show: Docker version 24.x.x
+
+# Install Git (if needed)
+# Mac:
+brew install git
+# Linux:
+sudo apt install git
+
+# Verify Git
+git --version  # Should show: git version 2.x.x
+```
+
+**For Windows:**
+```powershell
+# Install Python 3.11
+# 1. Download from: https://www.python.org/downloads/
+# 2. Run installer
+# 3. CHECK "Add Python to PATH" during installation
+# 4. Open new PowerShell and verify:
+python --version  # Should show: Python 3.11.x
+
+# Install Docker Desktop
+# 1. Download from: https://www.docker.com/products/docker-desktop
+# 2. Run installer
+# 3. Restart computer
+# 4. Open PowerShell and verify:
+docker --version
+
+# Install Git
+# 1. Download from: https://git-scm.com/download/win
+# 2. Run installer (use default settings)
+# 3. Verify:
+git --version
+```
+
+### **2.3 Project Initialization**
+
+#### **Creating the Project Structure**
+
+```bash
+# Create project directory
+mkdir meeting-agent
+cd meeting-agent
+
+# Create Python virtual environment
+python3.11 -m venv venv
+
+# Activate virtual environment
+# Mac/Linux:
+source venv/bin/activate
+# Windows:
+venv\Scripts\activate
+
+# Your prompt should now show (venv) at the start
+# Example: (venv) user@computer:~/meeting-agent$
+
+# Create project structure
+mkdir -p app/{services,models,api,websocket}
+mkdir -p tests/{unit,integration}
+mkdir -p docs
+mkdir -p scripts
+
+# Create empty Python files
+touch app/__init__.py
+touch app/main.py
+touch app/services/__init__.py
+touch app/services/recall_service.py
+touch app/services/deepgram_service.py
+touch app/services/openai_service.py
+touch app/services/redis_service.py
+touch app/models/__init__.py
+touch app/models/schemas.py
+touch app/api/__init__.py
+touch app/api/meetings.py
+touch app/websocket/__init__.py
+touch app/websocket/handler.py
+touch app/config.py
+
+# Create configuration files
+touch .env
+touch .env.example
+touch requirements.txt
+touch docker-compose.yml
+touch Dockerfile
+touch .dockerignore
+touch .gitignore
+touch README.md
+
+# Verify structure
+tree -L 3  # or 'ls -R' on Windows
+```
+
+**Expected Directory Structure:**
+```
+meeting-agent/
+├── venv/                      # Virtual environment (don't commit)
+├── app/
+│   ├── __init__.py
+│   ├── main.py               # FastAPI application entry point
+│   ├── config.py             # Configuration management
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── recall_service.py    # Recall.ai integration
+│   │   ├── deepgram_service.py  # Transcription service
+│   │   ├── openai_service.py    # AI processing
+│   │   └── redis_service.py     # State management
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── schemas.py        # Pydantic data models
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── meetings.py       # REST endpoints
+│   └── websocket/
+│       ├── __init__.py
+│       └── handler.py        # WebSocket connections
+├── tests/
+│   ├── unit/
+│   └── integration/
+├── docs/
+├── scripts/
+├── .env                      # Secret keys (never commit!)
+├── .env.example             # Template for .env
+├── requirements.txt         # Python dependencies
+├── docker-compose.yml       # Docker configuration
+├── Dockerfile              # Container definition
+├── .dockerignore          # Docker ignore file
+├── .gitignore            # Git ignore file
+└── README.md            # Project documentation
+```
+
+---
+
+<a name="phase-1"></a>
+## 3. Phase 1: Backend Foundation
+
+### **3.1 Understanding FastAPI Basics**
+
+**What is FastAPI?**
+FastAPI is a modern Python web framework. Think of it as the traffic controller for your application:
+- It receives requests (HTTP or WebSocket)
+- Routes them to the right function
+- Sends back responses
+
+**Key Concepts:**
+1. **Endpoint**: A URL that does something (e.g., `/meetings/join`)
+2. **HTTP Methods**: 
+   - `GET`: Retrieve data
+   - `POST`: Create/send data
+   - `PUT`: Update data
+   - `DELETE`: Remove data
+3. **Request Body**: Data sent to the server (JSON format)
+4. **Response**: Data returned from the server
+
+### **3.2 Configuration Management**
+
+#### **Prompt: Create .env.example File**
+
+```
+INSTRUCTION: Create a file named .env.example with the following content.
+
+PURPOSE: This file serves as a template showing what environment variables are needed.
+Never put real API keys in this file - it's meant to be committed to Git.
+
+FILE: .env.example
+---
+# API Keys (Replace with your actual keys in .env file)
+RECALL_API_KEY=your_recall_api_key_here
+DEEPGRAM_API_KEY=your_deepgram_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Redis Configuration
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+
+# Application Configuration
+APP_HOST=0.0.0.0
+APP_PORT=8000
+APP_ENV=development
+LOG_LEVEL=INFO
+
+# WebSocket Configuration
+WEBSOCKET_DOMAIN=your-domain.com
+
+# CORS Origins (comma-separated)
+CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+---
+
+NEXT STEPS:
+1. Copy this file to create .env
+2. Replace all placeholder values with real API keys
+3. Never commit .env to Git
+```
+
+#### **Prompt: Create .env File with Real Keys**
+
+```
+INSTRUCTION: Create .env file by copying .env.example
+
+COMMAND TO RUN:
+```bash
+cp .env.example .env
+```
+
+Then edit .env and replace placeholders with your actual API keys from section 2.1
+
+VERIFICATION:
+```bash
+# View .env (be careful - contains secrets!)
+cat .env
+
+# Make sure it has your real API keys
+# Keys should NOT say "your_x_api_key_here"
+```
+```
+
+#### **Prompt: Create Configuration Module**
+
+```python
+"""
+INSTRUCTION: Create app/config.py file
+
+PURPOSE: This file loads environment variables and makes them available throughout the app.
+It uses pydantic-settings for type-safe configuration management.
+
+CONCEPTS TO UNDERSTAND:
+1. Environment Variables: Values stored in .env file, loaded at runtime
+2. Pydantic BaseSettings: Automatically loads and validates .env values
+3. Type Hints: Tells Python what type each variable should be (str, int, etc.)
+4. Singleton Pattern: @lru_cache ensures only one config instance exists
+
+FILE: app/config.py
+"""
+
+from functools import lru_cache
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List
+
+
+class Settings(BaseSettings):
+    """
+    Application configuration loaded from environment variables.
+    
+    Each attribute here corresponds to a variable in .env file.
+    For example: recall_api_key maps to RECALL_API_KEY in .env
+    
+    Pydantic automatically:
+    1. Loads values from .env
+    2. Converts them to the correct type
+    3. Validates required fields are present
+    """
+    
+    # API Keys - REQUIRED
+    recall_api_key: str
+    deepgram_api_key: str
+    openai_api_key: str
+    
+    # Redis Configuration
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str = ""
+    
+    # Application Configuration
+    app_host: str = "0.0.0.0"
+    app_port: int = 8000
+    app_env: str = "development"
+    log_level: str = "INFO"
+    
+    # WebSocket Configuration
+    websocket_domain: str
+    
+    # CORS Origins - comma-separated string
+    cors_origins: str = "http://localhost:3000"
+    
+    # Computed properties
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Convert comma-separated CORS origins to a list"""
+        return [origin.strip() for origin in self.cors_origins.split(",")]
+    
+    @property
+    def redis_url(self) -> str:
+        """Build Redis connection URL"""
+        if self.redis_password:
+            return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}"
+        return f"redis://{self.redis_host}:{self.redis_port}"
+    
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production"""
+        return self.app_env.lower() == "production"
+    
+    # Pydantic settings configuration
+    model_config = SettingsConfigDict(
+        env_file=".env",  # Load from .env file
+        env_file_encoding="utf-8",
+        case_sensitive=False,  # Allow UPPERCASE or lowercase
+        extra="ignore"  # Ignore extra env vars
+    )
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    """
+    Get application settings (cached).
+    
+    @lru_cache() means this function is only called once.
+    Subsequent calls return the cached result.
+    This ensures we only load .env once.
+    
+    Usage in other files:
+        from app.config import get_settings
+        settings = get_settings()
+        print(settings.recall_api_key)
+    """
+    return Settings()
+
+
+# TESTING THE CONFIGURATION
+if __name__ == "__main__":
+    """
+    Run this file directly to test configuration loading:
+    python app/config.py
+    """
+    settings = get_settings()
+    print("Configuration loaded successfully!")
+    print(f"Environment: {settings.app_env}")
+    print(f"Redis URL: {settings.redis_url}")
+    print(f"CORS Origins: {settings.cors_origins_list}")
+    print(f"API Keys present: {bool(settings.recall_api_key)}")
+```
+
+**VERIFICATION STEPS:**
+```bash
+# Test the configuration
+python app/config.py
+
+# Expected output:
+# Configuration loaded successfully!
+# Environment: development
+# Redis URL: redis://localhost:6379
+# CORS Origins: ['http://localhost:3000']
+# API Keys present: True
+
+# If you get errors, check:
+# 1. Is .env file in the project root?
+# 2. Does .env have all required keys?
+# 3. Are there any typos in .env variable names?
+```
+```
+
+### **3.3 Dependencies Installation**
+
+#### **Prompt: Create requirements.txt**
+
+```
+INSTRUCTION: Create requirements.txt file
+
+PURPOSE: This file lists all Python packages our project needs.
+pip will install these packages into our virtual environment.
+
+UNDERSTANDING THE PACKAGES:
+
+Core Framework:
+- fastapi: Web framework (the main engine)
+- uvicorn: ASGI server (runs FastAPI)
+- pydantic-settings: Configuration management
+- python-multipart: Handle file uploads
+
+API Integrations:
+- openai: OpenAI API client
+- deepgram-sdk: Deepgram transcription
+- httpx: HTTP client for Recall.ai (better than requests)
+
+Real-time Communication:
+- websockets: WebSocket protocol support
+- python-socketio: Socket.IO support
+
+Data Storage:
+- redis: Redis client
+
+Utilities:
+- python-dotenv: Load .env files
+- pydantic: Data validation
+
+FILE: requirements.txt
+---
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-multipart==0.0.6
+python-dotenv==1.0.0
+
+# API Clients
+openai==1.3.7
+deepgram-sdk==3.0.0
+httpx==0.25.2
+
+# WebSocket Support
+websockets==12.0
+python-socketio==5.10.0
+
+# Data Storage
+redis==5.0.1
+
+# Utilities
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Development Tools (optional, but helpful)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+black==23.11.0
+flake8==6.1.0
+---
+
+INSTALLATION STEPS:
+```bash
+# Make sure virtual environment is activated
+# You should see (venv) in your prompt
+
+# Install all dependencies
+pip install -r requirements.txt
+
+# This will take 2-3 minutes
+# You'll see lots of "Successfully installed..." messages
+
+# Verify installation
+pip list | grep fastapi  # Should show: fastapi 0.104.1
+pip list | grep openai   # Should show: openai 1.3.7
+
+# If any package fails to install:
+# 1. Check your internet connection
+# 2. Try installing individually: pip install fastapi==0.104.1
+# 3. Check Python version: python --version (must be 3.11+)
+```
+```
+
+### **3.4 Data Models (Schemas)**
+
+#### **Prompt: Create Pydantic Schemas**
+
+```python
+"""
+INSTRUCTION: Create app/models/schemas.py
+
+PURPOSE: Define data structures (schemas) for our API.
+These are like blueprints that define what data looks like.
+
+CONCEPTS TO UNDERSTAND:
+
+1. Pydantic BaseModel:
+   - Automatically validates data types
+   - Converts JSON to Python objects
+   - Generates JSON schema for API docs
+
+2. Type Hints:
+   - str: Text
+   - int: Integer number
+   - float: Decimal number
+   - bool: True/False
+   - Optional[str]: Can be string or None
+   - List[str]: List of strings
+   - datetime: Date and time
+
+3. Field:
+   - Adds extra information about a field
+   - Example: Field(description="...") adds documentation
+   - Example: Field(default="") sets default value
+
+FILE: app/models/schemas.py
+"""
+
+from pydantic import BaseModel, Field, HttpUrl
+from typing import Optional, List, Dict
+from datetime import datetime
+from enum import Enum
+
+
+# ============================================================================
+# ENUMS (Predefined Choices)
+# ============================================================================
+
+class MeetingStatus(str, Enum):
+    """
+    Possible states of a meeting.
+    
+    Using Enum ensures only these values are allowed.
+    Example: status = MeetingStatus.ACTIVE
+    """
+    PENDING = "pending"        # Bot is joining
+    ACTIVE = "active"          # Bot is in meeting
+    ENDED = "ended"           # Meeting finished
+    ERROR = "error"           # Something went wrong
+
+
+class MeetingPlatform(str, Enum):
+    """Meeting platforms we support"""
+    ZOOM = "zoom"
+    TEAMS = "microsoft_teams"
+    MEET = "google_meet"
+    UNKNOWN = "unknown"
+
+
+# ============================================================================
+# REQUEST SCHEMAS (Data sent TO the API)
+# ============================================================================
+
+class JoinMeetingRequest(BaseModel):
+    """
+    Schema for POST /meetings/join
+    
+    Example JSON:
+    {
+        "meeting_url": "https://zoom.us/j/123456789",
+        "user_id": "user_abc123",
+        "bot_name": "AI Assistant"
+    }
+    """
+    meeting_url: HttpUrl = Field(
+        ...,  # ... means required
+        description="Full URL of the meeting to join",
+        examples=["https://zoom.us/j/123456789?pwd=abc123"]
+    )
+    user_id: str = Field(
+        ...,
+        description="Unique identifier for the user",
+        examples=["user_abc123"]
+    )
+    bot_name: Optional[str] = Field(
+        default="AI Meeting Assistant",
+        description="Name displayed for the bot in the meeting",
+        max_length=50
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "meeting_url": "https://zoom.us/j/123456789",
+                "user_id": "user_abc123",
+                "bot_name": "AI Assistant"
+            }
+        }
+
+
+class AskQuestionRequest(BaseModel):
+    """
+    Schema for POST /meetings/{meeting_id}/ask
+    
+    Example JSON:
+    {
+        "question": "What are the main discussion points?",
+        "wait_for_pause": true
+    }
+    """
+    question: str = Field(
+        ...,
+        description="Question to ask in the meeting",
+        min_length=5,
+        max_length=500,
+        examples=["What are the main discussion points?"]
+    )
+    wait_for_pause: bool = Field(
+        default=True,
+        description="Wait for speaking pause before asking"
+    )
+
+
+# ============================================================================
+# RESPONSE SCHEMAS (Data returned FROM the API)
+# ============================================================================
+
+class MeetingResponse(BaseModel):
+    """
+    Schema for meeting information returned by API
+    
+    Example JSON returned:
+    {
+        "meeting_id": "bot_abc123",
+        "status": "active",
+        "platform": "zoom",
+        "joined_at": "2025-10-17T21:06:54Z",
+        "bot_name": "AI Assistant"
+    }
+    """
+    meeting_id: str = Field(description="Unique meeting identifier")
+    status: MeetingStatus = Field(description="Current meeting status")
+    platform: MeetingPlatform = Field(description="Meeting platform detected")
+    joined_at: Optional[datetime] = Field(description="When bot joined meeting")
+    bot_name: str = Field(description="Bot display name")
+    user_id: str = Field(description="Associated user ID")
+
+
+class TranscriptSegment(BaseModel):
+    """
+    A single piece of transcribed speech
+    
+    Example:
+    {
+        "speaker": "Speaker 1",
+        "text": "Let's discuss the project timeline",
+        "timestamp": "2025-10-17T21:06:54Z",
+        "confidence": 0.95
+    }
+    """
+    speaker: str = Field(description="Speaker identifier")
+    text: str = Field(description="Transcribed text")
+    timestamp: datetime = Field(description="When this was spoken")
+    confidence: float = Field(
+        description="Transcription confidence (0-1)",
+        ge=0.0,  # >= 0
+        le=1.0   # <= 1
+    )
+
+
+class BriefingResponse(BaseModel):
+    """
+    Schema for GET /meetings/{meeting_id}/brief
+    
+    Example JSON returned:
+    {
+        "meeting_id": "bot_abc123",
+        "brief": "The meeting is discussing Q4 goals...",
+        "key_points": ["Budget approval", "Timeline review"],
+        "speakers": ["John", "Mary"],
+        "duration_minutes": 25,
+        "last_updated": "2025-10-17T21:06:54Z"
+    }
+    """
+    meeting_id: str
+    brief: str = Field(description="AI-generated summary")
+    key_points: List[str] = Field(
+        default=[],
+        description="Main discussion points"
+    )
+    speakers: List[str] = Field(
+        default=[],
+        description="People who have spoken"
+    )
+    duration_minutes: int = Field(description="Meeting duration so far")
+    last_updated: datetime = Field(description="When brief was generated")
+    recent_transcript: Optional[List[TranscriptSegment]] = Field(
+        default=[],
+        description="Last 5 minutes of conversation"
+    )
+
+
+class QuestionResponse(BaseModel):
+    """
+    Schema for POST /meetings/{meeting_id}/ask response
+    
+    Example JSON returned:
+    {
+        "status": "queued",
+        "question_id": "q_abc123",
+        "question_text": "What are the main points?",
+        "response_text": "The main points discussed are...",
+        "will_speak_at": "2025-10-17T21:07:30Z"
+    }
+    """
+    status: str = Field(description="queued, speaking, or completed")
+    question_id: str = Field(description="Unique question identifier")
+    question_text: str = Field(description="Original question")
+    response_text: str = Field(description="AI-generated response")
+    will_speak_at: Optional[datetime] = Field(
+        description="Estimated time bot will speak"
+    )
+
+
+class ErrorResponse(BaseModel):
+    """
+    Schema for error responses
+    
+    Example JSON returned:
+    {
+        "error": "Meeting not found",
+        "detail": "No meeting found with ID: bot_abc123",
+        "code": "MEETING_NOT_FOUND",
+        "timestamp": "2025-10-17T21:06:54Z"
+    }
+    """
+    error: str = Field(description="Error message")
+    detail: Optional[str] = Field(description="Detailed error information")
+    code: str = Field(description="Error code for debugging")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ============================================================================
+# INTERNAL DATA STRUCTURES (Not exposed in API, used internally)
+# ============================================================================
+
+class MeetingState(BaseModel):
+    """
+    Internal state stored in Redis
+    
+    This is what we save to remember meeting information
+    """
+    meeting_id: str
+    user_id: str
+    bot_id: str
+    status: MeetingStatus
+    platform: MeetingPlatform
+    transcript: str = ""
+    speakers: List[str] = []
+    started_at: datetime
+    last_activity: datetime
+    metadata: Dict = {}
+
+
+# ============================================================================
+# WEBSOCKET MESSAGES
+# ============================================================================
+
+class WebSocketMessage(BaseModel):
+    """
+    Base structure for WebSocket messages
+    
+    All WebSocket messages have this format:
+    {
+        "type": "transcript_update",
+        "data": { ... }
+    }
+    """
+    type: str = Field(description="Message type")
+    data: Dict = Field(description="Message payload")
+
+
+# TESTING THE SCHEMAS
+if __name__ == "__main__":
+    """
+    Run this file to test schemas:
+    python app/models/schemas.py
+    """
+    # Test creating a join request
+    join_request = JoinMeetingRequest(
+        meeting_url="https://zoom.us/j/123456789",
+        user_id="user_test",
+        bot_name="Test Bot"
+    )
+    print("Join Request:", join_request.model_dump_json(indent=2))
+    
+    # Test creating a briefing response
+    briefing = BriefingResponse(
+        meeting_id="meeting_123",
+        brief="Test meeting about Q4 goals",
+        key_points=["Goal 1", "Goal 2"],
+        speakers=["John", "Mary"],
+        duration_minutes=15,
+        last_updated=datetime.utcnow()
+    )
+    print("\nBriefing Response:", briefing.model_dump_json(indent=2))
+```
+
+**VERIFICATION:**
+```bash
+# Test the schemas
+python app/models/schemas.py
+
+# Should output JSON examples of each schema
+# If you get errors, check:
+# 1. Syntax errors (missing colons, commas, etc.)
+# 2. Import errors (are all packages installed?)
+# 3. Type errors (wrong data types)
+```
+```
+
+---
+
+**This is Part 1 of the comprehensive guide. Would you like me to continue with:**
+
+1. **Part 2: Service Layer Implementation** (Recall.ai, Deepgram, OpenAI services with detailed explanations)
+2. **Part 3: API Endpoints & WebSocket Handler**
+3. **Part 4: Testing, Deployment, and Troubleshooting**
+
+Each part will include:
+- ✅ Detailed explanations of every concept
+- ✅ Complete, copy-paste-ready code with extensive comments
+- ✅ Step-by-step verification instructions
+- ✅ Common errors and how to fix them
+- ✅ Testing procedures
+
+Should I continue with Part 2?
